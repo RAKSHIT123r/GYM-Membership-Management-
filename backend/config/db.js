@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Sequelize } = require('sequelize');
+const pg = require('pg');
 
 const connectionString = process.env.POSTGRES_URI;
 
@@ -9,6 +10,7 @@ if (!connectionString) {
 
 const sequelize = new Sequelize(connectionString, {
   dialect: 'postgres',
+  dialectModule: pg,
   logging: false,
   pool: {
     max: 10,
