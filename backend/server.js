@@ -31,8 +31,12 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'UP', service: 'ApexFit API Server', timestamp: new Date() });
+app.get(['/api/health', '/api/index'], (req, res) => {
+  res.json({
+    status: 'UP',
+    service: 'ApexFit API Server',
+    timestamp: new Date()
+  });
 });
 
 // Error handling middleware
