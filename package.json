@@ -1,0 +1,17 @@
+{
+  "name": "gym-membership-management-system",
+  "version": "1.0.0",
+  "description": "Full-stack Gym Membership Management System with Admin, Trainer, and Member portals",
+  "main": "backend/server.js",
+  "scripts": {
+    "setup": "npm install --prefix backend && npm install --prefix frontend",
+    "seed": "cd backend && node utils/seedData.js",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "cd backend && node server.js"
+  },
+  "keywords": ["gym", "membership", "react", "express", "mongodb", "fullstack"],
+  "author": "",
+  "license": "ISC"
+}
