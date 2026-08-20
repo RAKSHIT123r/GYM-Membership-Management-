@@ -1,5 +1,4 @@
-const WorkoutPlan = require('../models/WorkoutPlan');
-const Member = require('../models/Member');
+const { WorkoutPlan, Member, Trainer, User } = require('../models');
 
 // @desc    Get assigned workout plan for a member
 // @route   GET /api/workouts/member/:memberId
@@ -7,14 +6,18 @@ exports.getMemberWorkoutPlan = async (req, res) => {
   try {
     let memberId = req.params.memberId;
     if (memberId === 'my') {
-      const member = await Member.findOne({ userId: req.user._id });
+      const member = await Member.findOne({ where: { userId: req.user.id } });
       if (!member) return res.status(404).json({ message: 'Member profile not found' });
-      memberId = member._id;
+      memberId = member.id;
     }
 
-    const plan = await WorkoutPlan.findOne({ memberId, isActive: true })
-      .populate({ path: 'trainerId', populate: { path: 'userId', select: 'name email profileImage' } })
-      .sort({ updatedAt: -1 });
+    const plan = await WorkoutPlan.findOne({
+      where: { memberId, isActive: true },
+      include: [
+        { model: Trainer, as: 'trainer', include: [{ model: User, as: 'user', attributes: ['name', 'email', 'profileImage'] }] }
+      ],
+      order: [['updatedAt', 'DESC']]
+    });
 
     res.json(plan || null);
   } catch (error) {
@@ -30,19 +33,17 @@ exports.saveWorkoutPlan = async (req, res) => {
 
     let trainerId = req.body.trainerId;
     if (!trainerId && req.user.role === 'Trainer') {
-      const Trainer = require('../models/Trainer');
-      const tr = await Trainer.findOne({ userId: req.user._id });
-      if (tr) trainerId = tr._id;
+      const tr = await Trainer.findOne({ where: { userId: req.user.id } });
+      if (tr) trainerId = tr.id;
     }
 
     if (!trainerId) {
-      const Trainer = require('../models/Trainer');
       const tr = await Trainer.findOne();
-      if (tr) trainerId = tr._id;
+      if (tr) trainerId = tr.id;
     }
 
     // Deactivate previous active plans for this member
-    await WorkoutPlan.updateMany({ memberId }, { isActive: false });
+    await WorkoutPlan.update({ isActive: false }, { where: { memberId } });
 
     const newPlan = await WorkoutPlan.create({
       title: title || 'Custom Hypertrophy Routine',

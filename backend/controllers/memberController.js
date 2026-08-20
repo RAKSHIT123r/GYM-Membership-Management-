@@ -1,6 +1,4 @@
-const Member = require('../models/Member');
-const User = require('../models/User');
-const Membership = require('../models/Membership');
+const { Member, User, Membership, MembershipPlan, Branch, Trainer } = require('../models');
 
 // @desc    Get all members (Admin / Trainer)
 // @route   GET /api/members
@@ -13,18 +11,22 @@ exports.getAllMembers = async (req, res) => {
     if (status) filter.membershipStatus = status;
     if (trainerId) filter.trainerId = trainerId;
 
-    let members = await Member.find(filter)
-      .populate('userId', 'name email phone profileImage createdAt')
-      .populate('membershipPlanId')
-      .populate('branchId')
-      .populate({ path: 'trainerId', populate: { path: 'userId', select: 'name email' } });
+    let members = await Member.findAll({
+      where: filter,
+      include: [
+        { model: User, as: 'user', attributes: ['name', 'email', 'phone', 'profileImage', 'createdAt'] },
+        { model: MembershipPlan, as: 'membershipPlan' },
+        { model: Branch, as: 'branch' },
+        { model: Trainer, as: 'trainer', include: [{ model: User, as: 'user', attributes: ['name', 'email'] }] }
+      ]
+    });
 
     if (search) {
       const query = search.toLowerCase();
       members = members.filter(
         (m) =>
-          (m.userId && m.userId.name.toLowerCase().includes(query)) ||
-          (m.userId && m.userId.email.toLowerCase().includes(query)) ||
+          (m.user && m.user.name.toLowerCase().includes(query)) ||
+          (m.user && m.user.email.toLowerCase().includes(query)) ||
           (m.qrCodeToken && m.qrCodeToken.toLowerCase().includes(query))
       );
     }
@@ -39,16 +41,23 @@ exports.getAllMembers = async (req, res) => {
 // @route   GET /api/members/:id
 exports.getMemberById = async (req, res) => {
   try {
-    const member = await Member.findById(req.params.id)
-      .populate('userId', '-password')
-      .populate('membershipPlanId')
-      .populate('branchId')
-      .populate({ path: 'trainerId', populate: { path: 'userId', select: 'name email phone' } });
+    const member = await Member.findByPk(req.params.id, {
+      include: [
+        { model: User, as: 'user', attributes: { exclude: ['password'] } },
+        { model: MembershipPlan, as: 'membershipPlan' },
+        { model: Branch, as: 'branch' },
+        { model: Trainer, as: 'trainer', include: [{ model: User, as: 'user', attributes: ['name', 'email', 'phone'] }] }
+      ]
+    });
 
     if (!member) return res.status(404).json({ message: 'Member not found' });
 
     // Also get active membership history
-    const memberships = await Membership.find({ memberId: member._id }).populate('planId').sort({ createdAt: -1 });
+    const memberships = await Membership.findAll({
+      where: { memberId: member.id },
+      include: [{ model: MembershipPlan, as: 'plan' }],
+      order: [['createdAt', 'DESC']]
+    });
 
     res.json({ member, memberships });
   } catch (error) {
@@ -62,7 +71,7 @@ exports.updateMember = async (req, res) => {
   try {
     const { trainerId, branchId, fitnessGoal, autoRenew, membershipStatus, emergencyContact, gender, dateOfBirth } = req.body;
 
-    const member = await Member.findById(req.params.id);
+    const member = await Member.findByPk(req.params.id);
     if (!member) return res.status(404).json({ message: 'Member not found' });
 
     if (trainerId !== undefined) member.trainerId = trainerId || null;
@@ -76,11 +85,14 @@ exports.updateMember = async (req, res) => {
 
     await member.save();
 
-    const updatedMember = await Member.findById(member._id)
-      .populate('userId', 'name email phone profileImage')
-      .populate('membershipPlanId')
-      .populate('branchId')
-      .populate({ path: 'trainerId', populate: { path: 'userId', select: 'name email' } });
+    const updatedMember = await Member.findByPk(member.id, {
+      include: [
+        { model: User, as: 'user', attributes: ['name', 'email', 'phone', 'profileImage'] },
+        { model: MembershipPlan, as: 'membershipPlan' },
+        { model: Branch, as: 'branch' },
+        { model: Trainer, as: 'trainer', include: [{ model: User, as: 'user', attributes: ['name', 'email'] }] }
+      ]
+    });
 
     res.json(updatedMember);
   } catch (error) {
@@ -92,11 +104,12 @@ exports.updateMember = async (req, res) => {
 // @route   DELETE /api/members/:id
 exports.deleteMember = async (req, res) => {
   try {
-    const member = await Member.findById(req.params.id);
+    const member = await Member.findByPk(req.params.id);
     if (!member) return res.status(404).json({ message: 'Member not found' });
 
-    await User.findByIdAndDelete(member.userId);
-    await Member.findByIdAndDelete(req.params.id);
+    const userId = member.userId;
+    await member.destroy();
+    await User.destroy({ where: { id: userId } });
 
     res.json({ message: 'Member deleted successfully' });
   } catch (error) {

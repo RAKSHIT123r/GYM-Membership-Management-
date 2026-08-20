@@ -1,28 +1,68 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const nutritionPlanSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true },
-    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
-    trainerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trainer', required: true },
-    dailyCalories: { type: Number, required: true, default: 2400 },
-    proteinGrams: { type: Number, default: 160 },
-    carbsGrams: { type: Number, default: 250 },
-    fatsGrams: { type: Number, default: 70 },
-    waterTargetLiters: { type: Number, default: 3.5 },
-    meals: [
-      {
-        mealType: { type: String, enum: ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Pre-Workout', 'Post-Workout'] },
-        time: { type: String, default: '08:00 AM' },
-        foodItems: { type: String, required: true },
-        calories: { type: Number, default: 400 }
-      }
-    ],
-    recommendedFoods: [{ type: String }],
-    foodsToAvoid: [{ type: String }],
-    isActive: { type: Boolean, default: true }
+const NutritionPlan = sequelize.define('NutritionPlan', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  memberId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  trainerId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  dailyCalories: {
+    type: DataTypes.INTEGER,
+    defaultValue: 2400
+  },
+  proteinGrams: {
+    type: DataTypes.INTEGER,
+    defaultValue: 160
+  },
+  carbsGrams: {
+    type: DataTypes.INTEGER,
+    defaultValue: 250
+  },
+  fatsGrams: {
+    type: DataTypes.INTEGER,
+    defaultValue: 70
+  },
+  waterTargetLiters: {
+    type: DataTypes.FLOAT,
+    defaultValue: 3.5
+  },
+  meals: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+  recommendedFoods: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+  foodsToAvoid: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('NutritionPlan', nutritionPlanSchema);
+NutritionPlan.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = NutritionPlan;

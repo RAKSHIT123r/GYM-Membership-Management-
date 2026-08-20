@@ -1,15 +1,45 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const lockerSchema = new mongoose.Schema(
-  {
-    lockerNumber: { type: String, required: true },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
-    status: { type: String, enum: ['Available', 'Assigned', 'Maintenance'], default: 'Available' },
-    assignedToMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', default: null },
-    assignedDate: Date,
-    notes: { type: String, default: '' }
+const Locker = sequelize.define('Locker', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  lockerNumber: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  branchId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('Available', 'Assigned', 'Maintenance'),
+    defaultValue: 'Available'
+  },
+  assignedToMemberId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: null
+  },
+  assignedDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    defaultValue: ''
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Locker', lockerSchema);
+Locker.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Locker;

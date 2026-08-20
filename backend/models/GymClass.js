@@ -1,21 +1,68 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const gymClassSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    category: { type: String, enum: ['Yoga', 'Zumba', 'CrossFit', 'Strength Training', 'Cardio', 'HIIT', 'Boxing', 'Spinning'], required: true },
-    trainerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trainer', required: true },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
-    date: { type: String, required: true }, // YYYY-MM-DD
-    startTime: { type: String, required: true }, // e.g. "08:00 AM"
-    endTime: { type: String, required: true }, // e.g. "09:00 AM"
-    durationMinutes: { type: Number, default: 60 },
-    capacity: { type: Number, required: true, default: 20 },
-    bookedSeats: { type: Number, default: 0 },
-    description: { type: String, default: '' },
-    locationRoom: { type: String, default: 'Studio 1' }
+const GymClass = sequelize.define('GymClass', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  category: {
+    type: DataTypes.ENUM('Yoga', 'Zumba', 'CrossFit', 'Strength Training', 'Cardio', 'HIIT', 'Boxing', 'Spinning'),
+    allowNull: false
+  },
+  trainerId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  branchId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  date: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  startTime: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  endTime: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  durationMinutes: {
+    type: DataTypes.INTEGER,
+    defaultValue: 60
+  },
+  capacity: {
+    type: DataTypes.INTEGER,
+    defaultValue: 20
+  },
+  bookedSeats: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  description: {
+    type: DataTypes.TEXT,
+    defaultValue: ''
+  },
+  locationRoom: {
+    type: DataTypes.STRING,
+    defaultValue: 'Studio 1'
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('GymClass', gymClassSchema);
+GymClass.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = GymClass;

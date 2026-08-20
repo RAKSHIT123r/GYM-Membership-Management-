@@ -1,17 +1,48 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const trainerSchema = new mongoose.Schema(
-  {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
-    specialization: { type: String, required: true },
-    experienceYears: { type: Number, default: 3 },
-    certifications: [{ type: String }],
-    bio: { type: String, default: '' },
-    rating: { type: Number, default: 4.9 },
-    availability: { type: String, default: 'Mon-Sat: 6:00 AM - 4:00 PM' }
+const Trainer = sequelize.define('Trainer', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  branchId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  specialization: {
+    type: DataTypes.STRING,
+    defaultValue: 'General Fitness & Conditioning'
+  },
+  experienceYears: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  certifications: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+  bio: {
+    type: DataTypes.TEXT,
+    defaultValue: ''
+  },
+  rating: {
+    type: DataTypes.FLOAT,
+    defaultValue: 4.5
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Trainer', trainerSchema);
+Trainer.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Trainer;

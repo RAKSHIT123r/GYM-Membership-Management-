@@ -1,7 +1,5 @@
-const User = require('../models/User');
-const Member = require('../models/Member');
-const Trainer = require('../models/Trainer');
-const Branch = require('../models/Branch');
+const { User, Member, Trainer, Branch, MembershipPlan } = require('../models');
+const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
@@ -17,7 +15,7 @@ exports.registerUser = async (req, res) => {
   try {
     const { name, email, password, role, phone, branchId, specialization, fitnessGoal } = req.body;
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ where: { email } });
     if (userExists) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -33,29 +31,30 @@ exports.registerUser = async (req, res) => {
     let defaultBranch = branchId;
     if (!defaultBranch) {
       const b = await Branch.findOne();
-      if (b) defaultBranch = b._id;
+      if (b) defaultBranch = b.id;
     }
 
     if (user.role === 'Member') {
-      const qrToken = `APEX-${user._id.toString().slice(-6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const qrToken = `APEX-${user.id.toString().slice(-6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
       await Member.create({
-        userId: user._id,
-        branchId: defaultBranch,
+        userId: user.id,
+        branchId: defaultBranch || null,
         fitnessGoal: fitnessGoal || 'General Fitness',
         qrCodeToken: qrToken
       });
     } else if (user.role === 'Trainer') {
       await Trainer.create({
-        userId: user._id,
-        branchId: defaultBranch,
+        userId: user.id,
+        branchId: defaultBranch || null,
         specialization: specialization || 'Personal Fitness & Conditioning'
       });
     }
 
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
     res.status(201).json({
-      _id: user._id,
+      _id: user.id,
+      id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -74,23 +73,31 @@ exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (user && (await user.matchPassword(password))) {
-      const token = generateToken(user._id);
+      const token = generateToken(user.id);
 
       // Fetch extra role details
       let roleDetails = null;
       if (user.role === 'Member') {
-        roleDetails = await Member.findOne({ userId: user._id })
-          .populate('membershipPlanId')
-          .populate('branchId')
-          .populate({ path: 'trainerId', populate: { path: 'userId', select: 'name email phone profileImage' } });
+        roleDetails = await Member.findOne({
+          where: { userId: user.id },
+          include: [
+            { model: MembershipPlan, as: 'membershipPlan' },
+            { model: Branch, as: 'branch' },
+            { model: Trainer, as: 'trainer', include: [{ model: User, as: 'user', attributes: ['name', 'email', 'phone', 'profileImage'] }] }
+          ]
+        });
       } else if (user.role === 'Trainer') {
-        roleDetails = await Trainer.findOne({ userId: user._id }).populate('branchId');
+        roleDetails = await Trainer.findOne({
+          where: { userId: user.id },
+          include: [{ model: Branch, as: 'branch' }]
+        });
       }
 
       res.json({
-        _id: user._id,
+        _id: user.id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -111,19 +118,27 @@ exports.loginUser = async (req, res) => {
 // @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password');
+    const user = await User.findByPk(req.user.id, { attributes: { exclude: ['password'] } });
     let roleDetails = null;
     if (user.role === 'Member') {
-      roleDetails = await Member.findOne({ userId: user._id })
-        .populate('membershipPlanId')
-        .populate('branchId')
-        .populate({ path: 'trainerId', populate: { path: 'userId', select: 'name email phone profileImage' } });
+      roleDetails = await Member.findOne({
+        where: { userId: user.id },
+        include: [
+          { model: MembershipPlan, as: 'membershipPlan' },
+          { model: Branch, as: 'branch' },
+          { model: Trainer, as: 'trainer', include: [{ model: User, as: 'user', attributes: ['name', 'email', 'phone', 'profileImage'] }] }
+        ]
+      });
     } else if (user.role === 'Trainer') {
-      roleDetails = await Trainer.findOne({ userId: user._id }).populate('branchId');
+      roleDetails = await Trainer.findOne({
+        where: { userId: user.id },
+        include: [{ model: Branch, as: 'branch' }]
+      });
     }
 
     res.json({
-      _id: user._id,
+      _id: user.id,
+      id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -141,7 +156,7 @@ exports.getMe = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
 
     if (!user) {
       return res.status(404).json({ message: 'No account found with this email address' });
@@ -149,9 +164,9 @@ exports.forgotPassword = async (req, res) => {
 
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 mins
+    user.resetPasswordExpire = new Date(Date.now() + 30 * 60 * 1000); // 30 mins
 
-    await user.save({ validateBeforeSave: false });
+    await user.save();
 
     res.json({
       message: 'Password reset link simulated. Check instructions below.',
@@ -171,8 +186,10 @@ exports.resetPassword = async (req, res) => {
 
     const resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const user = await User.findOne({
-      resetPasswordToken,
-      resetPasswordExpire: { $gt: Date.now() }
+      where: {
+        resetPasswordToken,
+        resetPasswordExpire: { [Op.gt]: new Date() }
+      }
     });
 
     if (!user) {
@@ -180,8 +197,8 @@ exports.resetPassword = async (req, res) => {
     }
 
     user.password = newPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
     await user.save();
 
     res.json({ message: 'Password updated successfully. You can now login.' });

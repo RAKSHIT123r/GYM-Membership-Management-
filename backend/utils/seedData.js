@@ -1,49 +1,31 @@
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const User = require('../models/User');
-const Branch = require('../models/Branch');
-const Trainer = require('../models/Trainer');
-const MembershipPlan = require('../models/MembershipPlan');
-const Member = require('../models/Member');
-const Membership = require('../models/Membership');
-const GymClass = require('../models/GymClass');
-const Booking = require('../models/Booking');
-const Waitlist = require('../models/Waitlist');
-const Attendance = require('../models/Attendance');
-const WorkoutPlan = require('../models/WorkoutPlan');
-const NutritionPlan = require('../models/NutritionPlan');
-const Progress = require('../models/Progress');
-const Locker = require('../models/Locker');
-const Payment = require('../models/Payment');
-const Notification = require('../models/Notification');
+const {
+  sequelize,
+  User,
+  Branch,
+  Trainer,
+  MembershipPlan,
+  Member,
+  Membership,
+  GymClass,
+  Booking,
+  Waitlist,
+  Attendance,
+  WorkoutPlan,
+  NutritionPlan,
+  Progress,
+  Locker,
+  Payment,
+  Notification
+} = require('../models');
 
 dotenv.config();
 
 const seedDB = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/gym_db';
-    await mongoose.connect(mongoUri);
-    console.log(`[Seed] Connected to MongoDB at ${mongoUri}`);
-
-    // Clear existing collections
-    await User.deleteMany();
-    await Branch.deleteMany();
-    await Trainer.deleteMany();
-    await MembershipPlan.deleteMany();
-    await Member.deleteMany();
-    await Membership.deleteMany();
-    await GymClass.deleteMany();
-    await Booking.deleteMany();
-    await Waitlist.deleteMany();
-    await Attendance.deleteMany();
-    await WorkoutPlan.deleteMany();
-    await NutritionPlan.deleteMany();
-    await Progress.deleteMany();
-    await Locker.deleteMany();
-    await Payment.deleteMany();
-    await Notification.deleteMany();
-
-    console.log('[Seed] Database wiped cleanly.');
+    console.log('[Seed] Connecting to PostgreSQL and resetting tables...');
+    await sequelize.sync({ force: true });
+    console.log('[Seed] Database tables dropped and recreated cleanly.');
 
     // 1. Create Branches
     const b1 = await Branch.create({
@@ -112,7 +94,8 @@ const seedDB = async () => {
     });
 
     console.log('[Seed] Membership Plans created.');
-    // 3. Create requested Admin and Trainer only
+
+    // 3. Create Admin and Trainer users
     const adminUser = await User.create({
       name: 'velocity',
       email: 'velocitygamer9@gmail.com',
@@ -132,8 +115,8 @@ const seedDB = async () => {
     });
 
     await Trainer.create({
-      userId: trainerUser._id,
-      branchId: b1._id,
+      userId: trainerUser.id,
+      branchId: b1.id,
       specialization: 'General Fitness & Conditioning',
       experienceYears: 2,
       certifications: [],
@@ -141,7 +124,7 @@ const seedDB = async () => {
       rating: 4.5
     });
 
-    console.log('[Seed] Created only requested Admin and Trainer.');
+    console.log('[Seed] Created Admin and Trainer accounts.');
 
     console.log('[Seed] Database seeding completed successfully!');
     console.log('\n--- DEMO LOGIN CREDENTIALS ---');

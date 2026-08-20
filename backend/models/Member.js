@@ -1,26 +1,73 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const memberSchema = new mongoose.Schema(
-  {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    membershipPlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'MembershipPlan' },
-    trainerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trainer' },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
-    membershipStatus: { type: String, enum: ['Active', 'Expiring Soon', 'Expired', 'Cancelled', 'None'], default: 'None' },
-    startDate: Date,
-    endDate: Date,
-    autoRenew: { type: Boolean, default: false },
-    qrCodeToken: { type: String, unique: true, sparse: true },
-    dateOfBirth: Date,
-    gender: { type: String, enum: ['Male', 'Female', 'Other', 'Unspecified'], default: 'Unspecified' },
-    emergencyContact: {
-      name: { type: String, default: '' },
-      phone: { type: String, default: '' },
-      relation: { type: String, default: '' }
-    },
-    fitnessGoal: { type: String, default: 'General Fitness & Muscle Gain' }
+const Member = sequelize.define('Member', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  membershipPlanId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  trainerId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  branchId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  membershipStatus: {
+    type: DataTypes.ENUM('Active', 'Expiring Soon', 'Expired', 'Cancelled', 'None'),
+    defaultValue: 'None'
+  },
+  startDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  endDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  autoRenew: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  qrCodeToken: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: true
+  },
+  dateOfBirth: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  gender: {
+    type: DataTypes.ENUM('Male', 'Female', 'Other', 'Unspecified'),
+    defaultValue: 'Unspecified'
+  },
+  emergencyContact: {
+    type: DataTypes.JSON,
+    defaultValue: { name: '', phone: '', relation: '' }
+  },
+  fitnessGoal: {
+    type: DataTypes.STRING,
+    defaultValue: 'General Fitness & Muscle Gain'
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Member', memberSchema);
+Member.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Member;

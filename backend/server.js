@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+const { connectDB } = require('./config/db');
 
 dotenv.config();
 
@@ -43,7 +43,7 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.get(['/api/health', '/api/index'], (req, res) => {
   res.json({
     status: 'UP',
-    service: 'ApexFit API Server',
+    service: 'ApexFit API Server (PostgreSQL)',
     timestamp: new Date()
   });
 });

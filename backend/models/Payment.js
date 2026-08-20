@@ -1,18 +1,57 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const paymentSchema = new mongoose.Schema(
-  {
-    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
-    amount: { type: Number, required: true },
-    transactionId: { type: String, required: true, unique: true },
-    paymentMethod: { type: String, enum: ['Card', 'UPI', 'Stripe', 'Razorpay', 'Cash'], default: 'Razorpay' },
-    status: { type: String, enum: ['Success', 'Pending', 'Failed', 'Refunded'], default: 'Success' },
-    paymentType: { type: String, enum: ['Membership Purchase', 'Membership Renewal', 'Class Booking', 'Refund', 'Locker Rental'], default: 'Membership Purchase' },
-    associatedId: { type: String, default: '' }, // e.g. planId or classId
-    date: { type: Date, default: Date.now },
-    receiptUrl: { type: String, default: '' }
+const Payment = sequelize.define('Payment', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  memberId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  amount: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  transactionId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  paymentMethod: {
+    type: DataTypes.ENUM('Card', 'UPI', 'Stripe', 'Razorpay', 'Cash'),
+    defaultValue: 'Razorpay'
+  },
+  status: {
+    type: DataTypes.ENUM('Success', 'Pending', 'Failed', 'Refunded'),
+    defaultValue: 'Success'
+  },
+  paymentType: {
+    type: DataTypes.ENUM('Membership Purchase', 'Membership Renewal', 'Class Booking', 'Refund', 'Locker Rental'),
+    defaultValue: 'Membership Purchase'
+  },
+  associatedId: {
+    type: DataTypes.STRING,
+    defaultValue: ''
+  },
+  date: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  receiptUrl: {
+    type: DataTypes.STRING,
+    defaultValue: ''
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Payment', paymentSchema);
+Payment.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Payment;

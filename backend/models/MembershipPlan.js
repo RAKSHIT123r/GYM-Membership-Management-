@@ -1,19 +1,60 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const membershipPlanSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    durationDays: { type: Number, required: true }, // 30, 90, 180, 365
-    price: { type: Number, required: true },
-    description: { type: String, required: true },
-    features: [{ type: String }],
-    accessLevel: { type: String, enum: ['Basic', 'Standard', 'VIP Premium', 'All Access'], default: 'Standard' },
-    classAccess: { type: Boolean, default: true },
-    branchAccess: { type: String, enum: ['Single Branch', 'Multi-Branch Access'], default: 'Single Branch' },
-    autoRenewEligible: { type: Boolean, default: true },
-    isActive: { type: Boolean, default: true }
+const MembershipPlan = sequelize.define('MembershipPlan', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  durationDays: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  price: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  features: {
+    type: DataTypes.JSON,
+    defaultValue: []
+  },
+  accessLevel: {
+    type: DataTypes.ENUM('Basic', 'Standard', 'VIP Premium', 'All Access'),
+    defaultValue: 'Standard'
+  },
+  classAccess: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  branchAccess: {
+    type: DataTypes.ENUM('Single Branch', 'Multi-Branch Access'),
+    defaultValue: 'Single Branch'
+  },
+  autoRenewEligible: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('MembershipPlan', membershipPlanSchema);
+MembershipPlan.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = MembershipPlan;

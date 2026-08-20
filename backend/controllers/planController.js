@@ -1,10 +1,13 @@
-const MembershipPlan = require('../models/MembershipPlan');
+const { MembershipPlan } = require('../models');
 
 // @desc    Get all membership plans
 // @route   GET /api/plans
 exports.getAllPlans = async (req, res) => {
   try {
-    const plans = await MembershipPlan.find({ isActive: true }).sort({ price: 1 });
+    const plans = await MembershipPlan.findAll({
+      where: { isActive: true },
+      order: [['price', 'ASC']]
+    });
     res.json(plans);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -39,8 +42,9 @@ exports.createPlan = async (req, res) => {
 // @route   PUT /api/plans/:id
 exports.updatePlan = async (req, res) => {
   try {
-    const plan = await MembershipPlan.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const plan = await MembershipPlan.findByPk(req.params.id);
     if (!plan) return res.status(404).json({ message: 'Plan not found' });
+    await plan.update(req.body);
     res.json(plan);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -51,8 +55,10 @@ exports.updatePlan = async (req, res) => {
 // @route   DELETE /api/plans/:id
 exports.deletePlan = async (req, res) => {
   try {
-    const plan = await MembershipPlan.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+    const plan = await MembershipPlan.findByPk(req.params.id);
     if (!plan) return res.status(404).json({ message: 'Plan not found' });
+    plan.isActive = false;
+    await plan.save();
     res.json({ message: 'Plan deactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

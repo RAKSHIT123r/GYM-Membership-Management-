@@ -1,8 +1,4 @@
-const Payment = require('../models/Payment');
-const Member = require('../models/Member');
-const MembershipPlan = require('../models/MembershipPlan');
-const Membership = require('../models/Membership');
-const Notification = require('../models/Notification');
+const { Payment, Member, MembershipPlan, Membership, Notification, User } = require('../models');
 
 // @desc    Process payment for plan purchase or renewal
 // @route   POST /api/payments/create
@@ -10,10 +6,10 @@ exports.processPayment = async (req, res) => {
   try {
     const { planId, paymentMethod, autoRenew } = req.body;
 
-    const member = await Member.findOne({ userId: req.user._id });
+    const member = await Member.findOne({ where: { userId: req.user.id } });
     if (!member) return res.status(404).json({ message: 'Member profile not found' });
 
-    const plan = await MembershipPlan.findById(planId);
+    const plan = await MembershipPlan.findByPk(planId);
     if (!plan) return res.status(404).json({ message: 'Membership plan not found' });
 
     const transactionId = `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
@@ -21,18 +17,18 @@ exports.processPayment = async (req, res) => {
     const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
 
     const payment = await Payment.create({
-      memberId: member._id,
+      memberId: member.id,
       amount: plan.price,
       transactionId,
       paymentMethod: paymentMethod || 'Razorpay',
       status: 'Success',
       paymentType: member.membershipStatus === 'Active' ? 'Membership Renewal' : 'Membership Purchase',
-      associatedId: plan._id.toString(),
+      associatedId: plan.id.toString(),
       receiptUrl: `/invoices/${transactionId}.pdf`
     });
 
     // Update Member record
-    member.membershipPlanId = plan._id;
+    member.membershipPlanId = plan.id;
     member.membershipStatus = 'Active';
     member.startDate = now;
     member.endDate = endDate;
@@ -41,19 +37,19 @@ exports.processPayment = async (req, res) => {
 
     // Create Membership log entry
     await Membership.create({
-      memberId: member._id,
-      planId: plan._id,
+      memberId: member.id,
+      planId: plan.id,
       startDate: now,
       endDate,
       status: 'Active',
       autoRenew: member.autoRenew,
       pricePaid: plan.price,
-      paymentId: payment._id
+      paymentId: payment.id
     });
 
     // Send Notification
     await Notification.create({
-      userId: req.user._id,
+      userId: req.user.id,
       title: 'Payment Successful! 💳',
       message: `Your payment of ₹${plan.price.toLocaleString()} for ${plan.name} was successful. Membership active until ${endDate.toLocaleDateString()}.`,
       type: 'Membership'
@@ -79,14 +75,18 @@ exports.getPaymentHistory = async (req, res) => {
   try {
     let filter = {};
     if (req.user.role === 'Member') {
-      const member = await Member.findOne({ userId: req.user._id });
+      const member = await Member.findOne({ where: { userId: req.user.id } });
       if (!member) return res.status(404).json({ message: 'Member profile not found' });
-      filter.memberId = member._id;
+      filter.memberId = member.id;
     }
 
-    const payments = await Payment.find(filter)
-      .populate({ path: 'memberId', populate: { path: 'userId', select: 'name email' } })
-      .sort({ date: -1 });
+    const payments = await Payment.findAll({
+      where: filter,
+      include: [
+        { model: Member, as: 'member', include: [{ model: User, as: 'user', attributes: ['name', 'email'] }] }
+      ],
+      order: [['date', 'DESC']]
+    });
 
     res.json(payments);
   } catch (error) {
@@ -102,16 +102,18 @@ exports.calculateRefundPreview = async (req, res) => {
     let targetMemberId = memberId;
 
     if (!targetMemberId && req.user.role === 'Member') {
-      const member = await Member.findOne({ userId: req.user._id });
-      if (member) targetMemberId = member._id;
+      const member = await Member.findOne({ where: { userId: req.user.id } });
+      if (member) targetMemberId = member.id;
     }
 
-    const member = await Member.findById(targetMemberId).populate('membershipPlanId');
-    if (!member || !member.membershipPlanId) {
+    const member = await Member.findByPk(targetMemberId, {
+      include: [{ model: MembershipPlan, as: 'membershipPlan' }]
+    });
+    if (!member || !member.membershipPlan) {
       return res.status(400).json({ message: 'No active plan associated with this member' });
     }
 
-    const plan = member.membershipPlanId;
+    const plan = member.membershipPlan;
     const now = new Date();
     const endDate = new Date(member.endDate);
 
@@ -144,16 +146,21 @@ exports.processRefund = async (req, res) => {
 
     let targetMemberId = memberId;
     if (!targetMemberId && req.user.role === 'Member') {
-      const member = await Member.findOne({ userId: req.user._id });
-      if (member) targetMemberId = member._id;
+      const member = await Member.findOne({ where: { userId: req.user.id } });
+      if (member) targetMemberId = member.id;
     }
 
-    const member = await Member.findById(targetMemberId).populate('membershipPlanId').populate('userId');
-    if (!member || !member.membershipPlanId) {
+    const member = await Member.findByPk(targetMemberId, {
+      include: [
+        { model: MembershipPlan, as: 'membershipPlan' },
+        { model: User, as: 'user' }
+      ]
+    });
+    if (!member || !member.membershipPlan) {
       return res.status(400).json({ message: 'Active membership required to initiate refund' });
     }
 
-    const plan = member.membershipPlanId;
+    const plan = member.membershipPlan;
     const now = new Date();
     const endDate = new Date(member.endDate);
 
@@ -166,13 +173,13 @@ exports.processRefund = async (req, res) => {
     const refundTxnId = `RFD_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const refundLog = await Payment.create({
-      memberId: member._id,
+      memberId: member.id,
       amount: refundAmount,
       transactionId: refundTxnId,
       paymentMethod: 'Razorpay Refund',
       status: 'Refunded',
       paymentType: 'Refund',
-      associatedId: plan._id.toString(),
+      associatedId: plan.id.toString(),
       receiptUrl: `/invoices/${refundTxnId}.pdf`
     });
 
@@ -182,23 +189,24 @@ exports.processRefund = async (req, res) => {
     await member.save();
 
     // Update active membership log
-    await Membership.findOneAndUpdate(
-      { memberId: member._id, status: 'Active' },
-      {
-        status: 'Cancelled',
-        refundedAmount: refundAmount,
-        cancellationDate: now,
-        cancellationReason: reason || 'Early cancellation by member request'
-      }
-    );
+    const activeMembership = await Membership.findOne({ where: { memberId: member.id, status: 'Active' } });
+    if (activeMembership) {
+      activeMembership.status = 'Cancelled';
+      activeMembership.refundedAmount = refundAmount;
+      activeMembership.cancellationDate = now;
+      activeMembership.cancellationReason = reason || 'Early cancellation by member request';
+      await activeMembership.save();
+    }
 
     // Notification
-    await Notification.create({
-      userId: member.userId._id,
-      title: 'Membership Cancelled & Refund Processed 💵',
-      message: `Your membership was cancelled. A prorated refund of ₹${refundAmount.toLocaleString()} (${unusedDays} unused days) has been credited.`,
-      type: 'Membership'
-    });
+    if (member.user) {
+      await Notification.create({
+        userId: member.user.id,
+        title: 'Membership Cancelled & Refund Processed 💵',
+        message: `Your membership was cancelled. A prorated refund of ₹${refundAmount.toLocaleString()} (${unusedDays} unused days) has been credited.`,
+        type: 'Membership'
+      });
+    }
 
     res.json({
       success: true,

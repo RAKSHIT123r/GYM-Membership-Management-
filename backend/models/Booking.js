@@ -1,13 +1,36 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const bookingSchema = new mongoose.Schema(
-  {
-    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
-    classId: { type: mongoose.Schema.Types.ObjectId, ref: 'GymClass', required: true },
-    status: { type: String, enum: ['Booked', 'Cancelled', 'Attended', 'No-Show'], default: 'Booked' },
-    bookingDate: { type: Date, default: Date.now }
+const Booking = sequelize.define('Booking', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  memberId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  classId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('Booked', 'Cancelled', 'Attended', 'No-Show'),
+    defaultValue: 'Booked'
+  },
+  bookingDate: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Booking', bookingSchema);
+Booking.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Booking;

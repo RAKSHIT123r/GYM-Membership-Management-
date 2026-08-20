@@ -1,9 +1,4 @@
-const Member = require('../models/Member');
-const Trainer = require('../models/Trainer');
-const GymClass = require('../models/GymClass');
-const Attendance = require('../models/Attendance');
-const Payment = require('../models/Payment');
-const MembershipPlan = require('../models/MembershipPlan');
+const { Member, Trainer, GymClass, Attendance, Payment, User } = require('../models');
 
 // @desc    Get Admin Dashboard KPI Statistics
 // @route   GET /api/admin/stats
@@ -13,21 +8,21 @@ exports.getDashboardStats = async (req, res) => {
     let filter = {};
     if (branchId) filter.branchId = branchId;
 
-    const totalMembers = await Member.countDocuments(filter);
-    const activeMembers = await Member.countDocuments({ ...filter, membershipStatus: 'Active' });
-    const expiredMembers = await Member.countDocuments({ ...filter, membershipStatus: 'Expired' });
-    const pendingRenewals = await Member.countDocuments({ ...filter, membershipStatus: 'Expiring Soon' });
+    const totalMembers = await Member.count({ where: filter });
+    const activeMembers = await Member.count({ where: { ...filter, membershipStatus: 'Active' } });
+    const expiredMembers = await Member.count({ where: { ...filter, membershipStatus: 'Expired' } });
+    const pendingRenewals = await Member.count({ where: { ...filter, membershipStatus: 'Expiring Soon' } });
 
     let trainerFilter = {};
     if (branchId) trainerFilter.branchId = branchId;
-    const totalTrainers = await Trainer.countDocuments(trainerFilter);
+    const totalTrainers = await Trainer.count({ where: trainerFilter });
 
     const todayStr = new Date().toISOString().split('T')[0];
-    const todayClasses = await GymClass.countDocuments({ ...filter, date: todayStr });
-    const todayAttendance = await Attendance.countDocuments({ ...filter, date: todayStr, status: 'Granted' });
+    const todayClasses = await GymClass.count({ where: { ...filter, date: todayStr } });
+    const todayAttendance = await Attendance.count({ where: { ...filter, date: todayStr, status: 'Granted' } });
 
     // Revenue calculation
-    const allPayments = await Payment.find({ status: 'Success' });
+    const allPayments = await Payment.findAll({ where: { status: 'Success' } });
     const monthlyRevenue = allPayments.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
     res.json({
@@ -65,7 +60,7 @@ exports.getAnalyticsData = async (req, res) => {
     const classCategories = ['CrossFit', 'Strength Training', 'HIIT', 'Yoga', 'Zumba', 'Boxing'];
     const classPopularity = await Promise.all(
       classCategories.map(async (cat) => {
-        const count = await GymClass.countDocuments({ category: cat });
+        const count = await GymClass.count({ where: { category: cat } });
         return { category: cat, totalClasses: count || Math.floor(5 + Math.random() * 20) };
       })
     );
@@ -77,17 +72,21 @@ exports.getAnalyticsData = async (req, res) => {
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const checkins = await Attendance.countDocuments({ date: dateStr, status: 'Granted' });
+      const checkins = await Attendance.count({ where: { date: dateStr, status: 'Granted' } });
       past7Days.push({ day: dayName, date: dateStr, checkins: checkins || Math.floor(25 + Math.random() * 50) });
     }
 
     // 4. Trainer Performance (assigned members)
-    const trainers = await Trainer.find().populate('userId', 'name').limit(6);
+    const trainers = await Trainer.findAll({
+      include: [{ model: User, as: 'user', attributes: ['name'] }],
+      limit: 6
+    });
+
     const trainerPerformance = await Promise.all(
       trainers.map(async (t) => {
-        const count = await Member.countDocuments({ trainerId: t._id });
+        const count = await Member.count({ where: { trainerId: t.id } });
         return {
-          trainerName: t.userId ? t.userId.name : 'Coach',
+          trainerName: t.user ? t.user.name : 'Coach',
           assignedMembers: count,
           rating: t.rating || 4.9
         };

@@ -1,17 +1,52 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const attendanceSchema = new mongoose.Schema(
-  {
-    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
-    checkInTime: { type: Date, default: Date.now },
-    checkOutTime: Date,
-    date: { type: String, required: true }, // YYYY-MM-DD
-    status: { type: String, enum: ['Granted', 'Denied'], default: 'Granted' },
-    denialReason: { type: String, default: '' },
-    verifiedBy: { type: String, default: 'QR Automated Kiosk' }
+const Attendance = sequelize.define('Attendance', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  memberId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  branchId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  checkInTime: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  checkOutTime: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  date: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('Granted', 'Denied'),
+    defaultValue: 'Granted'
+  },
+  denialReason: {
+    type: DataTypes.STRING,
+    defaultValue: ''
+  },
+  verifiedBy: {
+    type: DataTypes.STRING,
+    defaultValue: 'QR Automated Kiosk'
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Attendance', attendanceSchema);
+Attendance.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Attendance;

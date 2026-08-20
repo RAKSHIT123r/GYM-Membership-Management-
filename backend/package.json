@@ -15,8 +15,10 @@
     "express": "^4.19.2",
     "gym-membership-management-system": "file:..",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.6.0",
-    "qrcode": "^1.5.4"
+    "pg": "^8.23.0",
+    "pg-hstore": "^2.3.4",
+    "qrcode": "^1.5.4",
+    "sequelize": "^6.37.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

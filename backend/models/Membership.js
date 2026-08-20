@@ -1,20 +1,64 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const membershipSchema = new mongoose.Schema(
-  {
-    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
-    planId: { type: mongoose.Schema.Types.ObjectId, ref: 'MembershipPlan', required: true },
-    startDate: { type: Date, required: true },
-    endDate: { type: Date, required: true },
-    status: { type: String, enum: ['Active', 'Expiring Soon', 'Expired', 'Cancelled'], default: 'Active' },
-    autoRenew: { type: Boolean, default: false },
-    pricePaid: { type: Number, required: true },
-    paymentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
-    refundedAmount: { type: Number, default: 0 },
-    cancellationDate: Date,
-    cancellationReason: String
+const Membership = sequelize.define('Membership', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  { timestamps: true }
-);
+  memberId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  planId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  startDate: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  endDate: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('Active', 'Expiring Soon', 'Expired', 'Cancelled'),
+    defaultValue: 'Active'
+  },
+  autoRenew: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  pricePaid: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  paymentId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  refundedAmount: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0
+  },
+  cancellationDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  cancellationReason: {
+    type: DataTypes.STRING,
+    allowNull: true
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model('Membership', membershipSchema);
+Membership.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  values._id = values.id;
+  return values;
+};
+
+module.exports = Membership;

@@ -1,5 +1,4 @@
-const Locker = require('../models/Locker');
-const Member = require('../models/Member');
+const { Locker, Member, User, Branch } = require('../models');
 
 // @desc    Get lockers for branch
 // @route   GET /api/lockers
@@ -10,10 +9,14 @@ exports.getLockers = async (req, res) => {
     if (branchId) filter.branchId = branchId;
     if (status) filter.status = status;
 
-    const lockers = await Locker.find(filter)
-      .populate({ path: 'assignedToMemberId', populate: { path: 'userId', select: 'name email phone' } })
-      .populate('branchId')
-      .sort({ lockerNumber: 1 });
+    const lockers = await Locker.findAll({
+      where: filter,
+      include: [
+        { model: Member, as: 'assignedMember', include: [{ model: User, as: 'user', attributes: ['name', 'email', 'phone'] }] },
+        { model: Branch, as: 'branch' }
+      ],
+      order: [['lockerNumber', 'ASC']]
+    });
 
     res.json(lockers);
   } catch (error) {
@@ -26,7 +29,7 @@ exports.getLockers = async (req, res) => {
 exports.assignLocker = async (req, res) => {
   try {
     const { memberId, notes } = req.body;
-    const locker = await Locker.findById(req.params.id);
+    const locker = await Locker.findByPk(req.params.id);
     if (!locker) return res.status(404).json({ message: 'Locker not found' });
 
     locker.status = 'Assigned';
@@ -36,8 +39,9 @@ exports.assignLocker = async (req, res) => {
 
     await locker.save();
 
-    const updated = await Locker.findById(locker._id)
-      .populate({ path: 'assignedToMemberId', populate: { path: 'userId', select: 'name email' } });
+    const updated = await Locker.findByPk(locker.id, {
+      include: [{ model: Member, as: 'assignedMember', include: [{ model: User, as: 'user', attributes: ['name', 'email'] }] }]
+    });
 
     res.json(updated);
   } catch (error) {
@@ -49,7 +53,7 @@ exports.assignLocker = async (req, res) => {
 // @route   POST /api/lockers/:id/release
 exports.releaseLocker = async (req, res) => {
   try {
-    const locker = await Locker.findById(req.params.id);
+    const locker = await Locker.findByPk(req.params.id);
     if (!locker) return res.status(404).json({ message: 'Locker not found' });
 
     locker.status = 'Available';

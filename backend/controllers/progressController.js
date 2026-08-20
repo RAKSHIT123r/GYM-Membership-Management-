@@ -1,5 +1,4 @@
-const Progress = require('../models/Progress');
-const Member = require('../models/Member');
+const { Progress, Member } = require('../models');
 
 // @desc    Get member progress history
 // @route   GET /api/progress/member/:memberId
@@ -7,12 +6,15 @@ exports.getProgressHistory = async (req, res) => {
   try {
     let memberId = req.params.memberId;
     if (memberId === 'my') {
-      const member = await Member.findOne({ userId: req.user._id });
+      const member = await Member.findOne({ where: { userId: req.user.id } });
       if (!member) return res.status(404).json({ message: 'Member profile not found' });
-      memberId = member._id;
+      memberId = member.id;
     }
 
-    const history = await Progress.find({ memberId }).sort({ date: 1 });
+    const history = await Progress.findAll({
+      where: { memberId },
+      order: [['date', 'ASC']]
+    });
     res.json(history);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -27,8 +29,8 @@ exports.addProgressRecord = async (req, res) => {
 
     let targetMemberId = memberId;
     if (!targetMemberId && req.user.role === 'Member') {
-      const member = await Member.findOne({ userId: req.user._id });
-      if (member) targetMemberId = member._id;
+      const member = await Member.findOne({ where: { userId: req.user.id } });
+      if (member) targetMemberId = member.id;
     }
 
     if (!targetMemberId) return res.status(400).json({ message: 'Member ID is required' });
@@ -39,8 +41,8 @@ exports.addProgressRecord = async (req, res) => {
 
     const record = await Progress.create({
       memberId: targetMemberId,
-      recordedBy: req.user._id,
-      date: req.body.date || Date.now(),
+      recordedBy: req.user.id,
+      date: req.body.date || new Date(),
       weightKg,
       bodyFatPercentage: bodyFatPercentage || 0,
       bmi,
