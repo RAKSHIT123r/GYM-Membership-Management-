@@ -1,9 +1,11 @@
 require('dotenv').config();
 const { Sequelize } = require('sequelize');
 
-const connectionString =
-  process.env.POSTGRES_URI ||
-  `postgres://${process.env.PGUSER || 'postgres'}:${process.env.PGPASSWORD || 'rakshu123'}@${process.env.PGHOST || 'localhost'}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE || 'gym_db'}`;
+const connectionString = process.env.POSTGRES_URI;
+
+if (!connectionString) {
+  throw new Error('POSTGRES_URI environment variable is not set');
+}
 
 const sequelize = new Sequelize(connectionString, {
   dialect: 'postgres',
